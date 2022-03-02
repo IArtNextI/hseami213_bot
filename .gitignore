@@ -1,3 +1,5 @@
 .idea/*
 venv/*
 log.txt
+key.py
+__pycache__/*

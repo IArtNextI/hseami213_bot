@@ -4,8 +4,9 @@ import requests
 import re
 import pytz
 import datetime
+import key
 
-bot = telebot.TeleBot("", parse_mode=None)
+bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
 last_query = dict()
 queries_without_cleanup = 0
@@ -81,6 +82,17 @@ def get_deadlines(message):
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
 
 
+@bot.message_handler(commands=['userid'])
+def get_chatid(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if CORRECT_IDS and message.chat.id not in CORRECT_IDS:
+        return
+    bot.reply_to(message, str(message.from_user.id))
+
+
+
+
 @bot.message_handler(commands=['chatid'])
 def get_chatid(message):
     global last_query, CORRECT_IDS
@@ -96,7 +108,15 @@ def delete_message(message):
     cleanup()
     if CORRECT_IDS and message.chat.id not in CORRECT_IDS:
         return
-    bot.reply_to(message, str(message.chat.id))
+    fin = open(path, 'r')
+    lines = fin.readlines()
+    fin.close()
+    res = 'Выберите, какую запись удалить:\n\n'
+    for i in range(max(len(lines) - 15, 0), len(lines)):
+        res += str(i) + " :: " + lines[i]
+    bot.reply_to(message, res, disable_web_page_preview=True)
+    user = message.from_user.id
+    last_query[user] = (datetime.datetime.now(), -1)
 
 
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
@@ -146,6 +166,22 @@ def process(message):
                 last_query[user] = (datetime.datetime.now(), 0)
             else:
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")
+        elif current[1] == -1:
+            index = int(message.text.strip())
+            fin = open(path, 'r')
+            lines = fin.readlines()
+            fin.close()
+            if index >= len(lines):
+                bot.reply_to(message, "Sorry it seems it a DDOS attack")
+            else:
+                fout = open(path, 'w')
+                for i in range(len(lines)):
+                    if i == index:
+                        continue
+                    print(lines[i], file=fout)
+                fout.close()
+                last_query[user] = (datetime.datetime.now(), 0)
+                bot.reply_to(message, "Уничтожил, низвел до атомов...")
         else:
             bot.reply_to(message, "Sorry it seems it a DDOS attack")
     except:
