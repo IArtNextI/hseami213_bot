@@ -1,10 +1,15 @@
-import telebot
-from telebot import types
-import requests
-import re
-import pytz
 import datetime
 import key
+import logging
+import os
+import pytz
+import re
+import requests
+import schedule
+import telebot
+from telebot import types
+from threading import Thread
+from time import sleep
 
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
@@ -13,6 +18,12 @@ queries_without_cleanup = 0
 
 CORRECT_IDS = []
 timezone = pytz.timezone('Europe/Moscow')
+
+path = "./log.txt"
+
+logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('hseami213_bot')
+logger.setLevel(logging.DEBUG)
 
 
 def cleanup():
@@ -29,6 +40,16 @@ def cleanup():
         last_query = newdict
 
 
+def delayed_message(text, chat_id):
+    bot.send_message(chat_id, text)
+    return schedule.CancelJob
+
+
+def add_reminders(task, deadline, chat_id):
+    text = f'!!!Дедлайн по {task} : {deadline}'
+    schedule.every().day.at(deadline - datetime.timedelta(hours=1)).do(delayed_message(text, chat_id))
+
+
 @bot.message_handler(commands=['add'])
 def add_deadline(message):
     global last_query, CORRECT_IDS
@@ -42,16 +63,13 @@ def add_deadline(message):
     bot.reply_to(message, "Название дисциплины?")
 
 
-path = "hseami213_bot/log.txt"
-
-
 @bot.message_handler(commands=['get'])
 def get_deadlines(message):
     global last_query, CORRECT_IDS
     cleanup()
     if CORRECT_IDS and message.chat.id not in CORRECT_IDS:
         return
-    list_of_active_dealines = []
+    list_of_active_deadlines = []
     fin = open(path, 'r')
     lines = fin.readlines()
     fin.close()
@@ -60,9 +78,14 @@ def get_deadlines(message):
             tad = line.strip().split(';')[0]
             datte = list(map(int, tad.split()[0].split('.')))
             timme = list(map(int, tad.split()[1].split(':')))
-    #        print(datetime.datetime.now(tz=timezone) + datetime.timedelta(minutes=30))
-    #        print(datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone))
-            if datetime.datetime.now(tz=timezone) + datetime.timedelta(minutes=30) < datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone):
+            #        print(datetime.datetime.now(tz=timezone) + datetime.timedelta(minutes=30))
+            #        print(datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone))
+            if datetime.datetime.now(tz=timezone) + datetime.timedelta(minutes=30) < datetime.datetime(datte[2],
+                                                                                                       datte[1],
+                                                                                                       datte[0],
+                                                                                                       timme[0],
+                                                                                                       timme[1], 59,
+                                                                                                       tzinfo=timezone):
                 # This line satisfies the condition, parse it
                 splitted = line.strip().split(';')
                 res = splitted[0] + ' --- '
@@ -71,12 +94,13 @@ def get_deadlines(message):
                 else:
                     res += splitted[1] + '\n'
                 print(res)
-                list_of_active_dealines.append([res, datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone)])
+                list_of_active_deadlines.append(
+                    [res, datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone)])
         except:
             pass
-    if list_of_active_dealines:
-        list_of_active_dealines.sort(key=lambda x:x[1])
-        bot.reply_to(message, 'Список ближайших дедлайнов:\n\n' + ''.join([x[0] for x in list_of_active_dealines]),
+    if list_of_active_deadlines:
+        list_of_active_deadlines.sort(key=lambda x: x[1])
+        bot.reply_to(message, 'Список ближайших дедлайнов:\n\n' + ''.join([x[0] for x in list_of_active_deadlines]),
                      parse_mode="HTML", disable_web_page_preview=True)
     else:
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
@@ -89,8 +113,6 @@ def get_chatid(message):
     if CORRECT_IDS and message.chat.id not in CORRECT_IDS:
         return
     bot.reply_to(message, str(message.from_user.id))
-
-
 
 
 @bot.message_handler(commands=['chatid'])
@@ -108,9 +130,8 @@ def delete_message(message):
     cleanup()
     if CORRECT_IDS and message.chat.id not in CORRECT_IDS:
         return
-    fin = open(path, 'r')
-    lines = fin.readlines()
-    fin.close()
+    with open(path, 'r') as fin:
+        lines = fin.readlines()
     res = 'Выберите, какую запись удалить:\n\n'
     for i in range(max(len(lines) - 15, 0), len(lines)):
         res += str(i) + " :: " + lines[i]
@@ -120,7 +141,9 @@ def delete_message(message):
 
 
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
-@bot.message_handler(func=lambda x: True and x.text.replace("@hseami213_bot", '').split()[0] not in ['/add', '/get', '/chatid', '/delete'])
+@bot.message_handler(
+    func=lambda x: True and x.text.replace("@hseami213_bot", '').split()[0] not in ['/add', '/get', '/chatid',
+                                                                                    '/delete'])
 def process(message):
     try:
         cleanup()
@@ -140,46 +163,37 @@ def process(message):
             bot.reply_to(message, "Ссылочку бы...")
         elif current[1] == 3:
             ans = message.text.strip()
+            new_entry = current[3] + ';' + current[2] + ';'
+            last_query[user] = (datetime.datetime.now(), 0)
+
             if ans.lower() in ['no', 'нет', 'не', 'неа', 'не-а', '-']:
-                fout = open(path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
                 bot.reply_to(message, "И как людям жить? Ладно, записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             elif ans.lower() in ["не)"]:
-                fout = open(path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
                 bot.reply_to(message, "-_- Это матан что ли? Ладно, записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             elif ans.lower() in ["Сори, нет("]:
-                fout = open(path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
                 bot.reply_to(message, "(O.o)? Записано... \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             elif '.' in ans:
-                fout = open(path, 'a')
-                print(current[3] + ';' + current[2] + ';' + message.text.strip(), file=fout)
-                fout.close()
+                new_entry += message.text.strip()
                 bot.reply_to(message, "Записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             else:
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")
+                return
+
+            with open(path, 'a') as fout:
+                fout.write(new_entry + '\n')
+            add_reminders(new_entry, )
         elif current[1] == -1:
             index = int(message.text.strip())
-            fin = open(path, 'r')
-            lines = fin.readlines()
-            fin.close()
+            with open(path, 'r') as fin:
+                lines = fin.readlines()
             if index >= len(lines):
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")
             else:
-                fout = open(path, 'w')
-                for i in range(len(lines)):
-                    if i == index:
-                        continue
-                    print(lines[i], file=fout)
-                fout.close()
+                with open(path, 'w') as fout:
+                    for i in range(len(lines)):
+                        if i == index:
+                            continue
+                        print(lines[i], file=fout)
                 last_query[user] = (datetime.datetime.now(), 0)
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
         else:
@@ -188,10 +202,19 @@ def process(message):
         bot.reply_to(message, "Sorry it seems it a DDOS attack")
 
 
+def schedule_checker():
+    while True:
+        schedule.run_pending()
+        sleep(1)
+
+
 if __name__ == "__main__":
-    print("hseami213_bot")
+    logger.info("Starting hseami213_bot")
+
+    Thread(target=schedule_checker).start()
+
     while True:
         try:
             bot.polling()
-        except:
-            pass
+        except Exception as e:
+            logger.error("Something went wrong:\n" + str(e) + '\n')
