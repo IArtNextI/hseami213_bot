@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import key
 import logging
@@ -5,11 +6,9 @@ import os
 import pytz
 import re
 import requests
-import schedule
 import telebot
+from apscheduler.schedulers.background import BackgroundScheduler
 from telebot import types
-from threading import Thread
-from time import sleep
 
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
@@ -24,6 +23,8 @@ path = "./log.txt"
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('hseami213_bot')
 logger.setLevel(logging.DEBUG)
+
+scheduler = BackgroundScheduler(timezone=timezone)
 
 
 def cleanup():
@@ -40,14 +41,9 @@ def cleanup():
         last_query = newdict
 
 
-def delayed_message(text, chat_id):
-    bot.send_message(chat_id, text)
-    return schedule.CancelJob
-
-
 def add_reminders(task, deadline, chat_id):
     text = f'!!!Дедлайн по {task} : {deadline}'
-    schedule.every().day.at(deadline - datetime.timedelta(hours=1)).do(delayed_message(text, chat_id))
+    bot.send_message(chat_id, text)
 
 
 @bot.message_handler(commands=['add'])
@@ -152,6 +148,8 @@ def process(message):
             return
         user = message.from_user.id
         current = last_query.get(user, None)
+        deadline = datetime.datetime.now()
+        name = ''
         if current is None or (datetime.datetime.now() - current[0]).total_seconds() > 180:
             return
         if current[1] == 1:
@@ -159,7 +157,11 @@ def process(message):
             last_query[user] = (datetime.datetime.now(), 2, name)
             bot.reply_to(message, "Дедлайн? (dd.mm.yyyy hh:mm)")
         elif current[1] == 2:
-            last_query[user] = (datetime.datetime.now(), 3, current[2], message.text.strip())
+            msg = message.text.strip()
+            date, time = msg.split()
+            deadline = datetime.datetime(*map(int, date.split('.')[::-1]), *map(int, time.split(':')), 59,
+                                         tzinfo=timezone)
+            last_query[user] = (datetime.datetime.now(), 3, current[2], msg, current[-1], deadline)
             bot.reply_to(message, "Ссылочку бы...")
         elif current[1] == 3:
             ans = message.text.strip()
@@ -181,7 +183,9 @@ def process(message):
 
             with open(path, 'a') as fout:
                 fout.write(new_entry + '\n')
-            add_reminders(new_entry, )
+
+            scheduler.add_job(add_reminders, 'date', run_date=current[-1] - datetime.timedelta(hours=1),
+                              args=[current[-2], current[-1], chat_id])
         elif current[1] == -1:
             index = int(message.text.strip())
             with open(path, 'r') as fin:
@@ -198,21 +202,14 @@ def process(message):
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
         else:
             bot.reply_to(message, "Sorry it seems it a DDOS attack")
-    except:
+    except Exception as e:
         bot.reply_to(message, "Sorry it seems it a DDOS attack")
-
-
-def schedule_checker():
-    while True:
-        schedule.run_pending()
-        sleep(1)
+        logger.error("Something went wrong:\n" + str(e) + '\n')
 
 
 if __name__ == "__main__":
     logger.info("Starting hseami213_bot")
-
-    Thread(target=schedule_checker).start()
-
+    scheduler.start()
     while True:
         try:
             bot.polling()
