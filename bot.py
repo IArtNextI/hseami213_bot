@@ -42,6 +42,7 @@ def cleanup():
 
 
 def add_reminders(task, deadline, chat_id):
+    logger.debug('sending reminder!')
     text = f'!!!Дедлайн по {task} : {deadline}'
     bot.send_message(chat_id, text)
 
@@ -89,7 +90,7 @@ def get_deadlines(message):
                     res += '<a href=\"' + splitted[2] + '\">' + splitted[1] + "</a>\n"
                 else:
                     res += splitted[1] + '\n'
-                print(res)
+                logger.debug(res)
                 list_of_active_deadlines.append(
                     [res, datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=timezone)])
         except:
@@ -184,8 +185,10 @@ def process(message):
             with open(path, 'a') as fout:
                 fout.write(new_entry + '\n')
 
-            scheduler.add_job(add_reminders, 'date', run_date=current[-1] - datetime.timedelta(hours=1),
+            scheduler.add_job(add_reminders, 'date', run_date=current[-1] - datetime.timedelta(hours=1) - datetime.timedelta(minutes=30),
                               args=[current[-2], current[-1], chat_id])
+            for job in scheduler.get_jobs():
+                logger.debug('My: ' + str(job.trigger))
         elif current[1] == -1:
             index = int(message.text.strip())
             with open(path, 'r') as fin:
@@ -208,7 +211,8 @@ def process(message):
 
 
 if __name__ == "__main__":
-    logger.info("Starting hseami213_bot")
+    logger.debug("Starting hseami213_bot")
+    logging.getLogger('apscheduler').setLevel(logging.DEBUG)
     scheduler.start()
     while True:
         try:
