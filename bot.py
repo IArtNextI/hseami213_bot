@@ -33,6 +33,25 @@ def cleanup():
         last_query = newdict
 
 
+@bot.message_handler(commands=['start', 'help'])
+def add_deadline(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    chat_id = message.chat.id
+    if not check_IDS(chat_id):
+        return
+    bot.reply_to(message, '''/help - отобразить это сообщение
+/add - начать добавление дедлайна
+/get - отобразить список текущих дедлайнов
+/chatid - отобразить id текущей беседы
+/userid - отобразить id пользователя
+/delete - начать удаление дедлайна
+/wiki - отобразить список ссылок на вики
+/marks - отобразить список ссылок на таблицы с оценками
+/linal - отобразить ссылки на Yandex.Disk с дз по линалу и на задачник Кострикина
+/mark_formulas - отобразить список формул оценок''')
+
+
 @bot.message_handler(commands=['add'])
 def add_deadline(message):
     global last_query, CORRECT_IDS
@@ -93,7 +112,6 @@ def get_chatid(message):
     if not check_IDS(message.chat.id):
         return
     bot.reply_to(message, str(message.from_user.id))
-
 
 
 
