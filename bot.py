@@ -197,7 +197,7 @@ def process(message):
                 fout.close()
                 bot.reply_to(message, "-_- Это матан что ли? Ладно, записано \\(0-0)/")
                 last_query[user] = (datetime.datetime.now(), 0)
-            elif ans.lower() in ["Сори, нет("]:
+            elif ans.lower() in ["сори, нет("]:
                 fout = open(config.log_path, 'a')
                 print(current[3] + ';' + current[2] + ';', file=fout)
                 fout.close()
@@ -227,8 +227,6 @@ def process(message):
                 fout.close()
                 last_query[user] = (datetime.datetime.now(), 0)
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
-        else:
-            bot.reply_to(message, "Sorry it seems it a DDOS attack")
     except:
         bot.reply_to(message, "Sorry it seems it a DDOS attack")
 
