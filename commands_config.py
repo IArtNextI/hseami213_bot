@@ -16,3 +16,4 @@ class bot_command:
     today = 'today'
     userid = 'userid'
     wiki = 'wiki'
+    recordings = 'recordings'
