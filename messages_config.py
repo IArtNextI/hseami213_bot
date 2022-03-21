@@ -61,7 +61,6 @@ bot_message = {
 
     bot_command.chatid: lambda message: message.chat.id,
 
-    bot_command.userid: lambda message: message.from_user.id,
-
-    bot_command.userid: lambda message: message.from_user.id,
+    bot_command.userid: lambda message: message.from_user.id
+    
 }
