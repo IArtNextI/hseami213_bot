@@ -2,6 +2,7 @@ import datetime
 import re
 
 import requests
+import ruz
 import telebot
 from telebot import types
 
@@ -13,9 +14,16 @@ from messages_config import bot_message
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
 last_query = dict()
+last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
+todays_schedule = ruz.person_lessons(email = "aakurdun@edu.hse.ru", from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
 CORRECT_IDS = []
+
+def update_today_schedule():
+    global last_update_date, todays_schedule
+    last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
+    todays_schedule = ruz.person_lessons(email = "aakurdun@edu.hse.ru", from_date=datetime.datetime.today().strftime('%Y.%m.%d'), to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
 
 def get_command_name(message):
     return message.text.replace("@hseami213_bot", '').split()[0][1:]
@@ -136,6 +144,21 @@ def send_md(message):
     if not check_IDS(message.chat.id):
         return
     res = bot_message[get_command_name(message)]
+    bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
+
+@bot.message_handler(commands=[bot_command.today])
+def send_todays_schedule(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message.chat.id):
+        return
+
+    if last_update_date < datetime.datetime.today().strftime('%Y.%m.%d'):
+        update_today_schedule()
+    if len(todays_schedule) == 0:
+        bot.reply_to(message, 'Нет у тебя сегодня пар, дурень. Иди отдохни...', parse_mode="Markdown", disable_web_page_preview=True)
+        return
+    res = bot_message[bot_command.today](todays_schedule)
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
