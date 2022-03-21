@@ -5,12 +5,28 @@ from commands_config import bot_command
 https://core.telegram.org/bots/api#markdownv2-style
 '''
 
+def get_formated_todays_schedule(todays_schedule):
+    res = '~~~~~~~~~\n'
+    for lesson in todays_schedule:
+        res += '\n'.join((
+            ''
+            , lesson['kindOfWork'] + ': ' + lesson['discipline'].replace(" (рус)", '')
+            , 'Аудитория: ' + lesson['auditorium']
+            , 'Начало: ' + lesson['beginLesson']
+            , 'Конец: ' + lesson['endLesson']
+            , ''
+            , '~~~~~~~~~'
+            , ''
+        ))
+    return res
+
 bot_message = {
 
     bot_command.help: '\n'.join((
           '/' + bot_command.help + '- отобразить это сообщение'
         , '/' + bot_command.add + '- начать добавление дедлайна'
         , '/' + bot_command.get + '- отобразить список текущих дедлайнов'
+        , '/' + bot_command.today + '- отобразить рассписание на сегодня'
         , '/' + bot_command.chatid + '- отобразить id текущей беседы'
         , '/' + bot_command.userid + '- отобразить id пользователя'
         , '/' + bot_command.delete + '- начать удаление дедлайна'
@@ -66,4 +82,6 @@ bot_message = {
     bot_command.chatid: lambda message: message.chat.id,
 
     bot_command.userid: lambda message: message.from_user.id,
+
+    bot_command.today: lambda todays_schedule: get_formated_todays_schedule(todays_schedule)
 }
