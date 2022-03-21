@@ -15,3 +15,4 @@ class bot_command:
     start = 'start'
     userid = 'userid'
     wiki = 'wiki'
+    recordings = 'recordings'

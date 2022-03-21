@@ -17,8 +17,10 @@ queries_without_cleanup = 0
 
 CORRECT_IDS = []
 
+
 def get_command_name(message):
     return message.text.replace("@hseami213_bot", '').split()[0][1:]
+
 
 def check_IDS(chatid):
     return not CORRECT_IDS or chatid in CORRECT_IDS
@@ -60,6 +62,7 @@ def add_deadline(message):
     last_query[user] = (datetime.datetime.now(), 1)
     bot.reply_to(message, "Название дисциплины?")
 
+
 @bot.message_handler(commands=[bot_command.get])
 def get_deadlines(message):
     global last_query, CORRECT_IDS
@@ -75,9 +78,15 @@ def get_deadlines(message):
             tad = line.strip().split(';')[0]
             datte = list(map(int, tad.split()[0].split('.')))
             timme = list(map(int, tad.split()[1].split(':')))
-    #        print(datetime.datetime.now(tz=config.timezone) + datetime.timedelta(minutes=30))
-    #        print(datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=config.timezone))
-            if datetime.datetime.now(tz=config.timezone) + datetime.timedelta(minutes=30) < datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=config.timezone):
+            #        print(datetime.datetime.now(tz=config.timezone) + datetime.timedelta(minutes=30))
+            #        print(datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=config.timezone))
+            if datetime.datetime.now(tz=config.timezone) + datetime.timedelta(minutes=30) < datetime.datetime(datte[2],
+                                                                                                              datte[1],
+                                                                                                              datte[0],
+                                                                                                              timme[0],
+                                                                                                              timme[1],
+                                                                                                              59,
+                                                                                                              tzinfo=config.timezone):
                 # This line satisfies the condition, parse it
                 splitted = line.strip().split(';')
                 res = splitted[0] + ' --- '
@@ -86,15 +95,18 @@ def get_deadlines(message):
                 else:
                     res += splitted[1] + '\n'
                 print(res)
-                list_of_active_dealines.append([res, datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59, tzinfo=config.timezone)])
+                list_of_active_dealines.append([res,
+                                                datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59,
+                                                                  tzinfo=config.timezone)])
         except:
             pass
     if list_of_active_dealines:
-        list_of_active_dealines.sort(key=lambda x:x[1])
+        list_of_active_dealines.sort(key=lambda x: x[1])
         bot.reply_to(message, 'Список ближайших дедлайнов:\n\n' + ''.join([x[0] for x in list_of_active_dealines]),
                      parse_mode="HTML", disable_web_page_preview=True)
     else:
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
+
 
 @bot.message_handler(commands=[bot_command.delete])
 def delete_message(message):
@@ -112,6 +124,7 @@ def delete_message(message):
     user = message.from_user.id
     last_query[user] = (datetime.datetime.now(), -1)
 
+
 @bot.message_handler(commands=[bot_command.userid, bot_command.chatid])
 def get_info(message):
     global last_query, CORRECT_IDS
@@ -120,7 +133,8 @@ def get_info(message):
         return
     bot.reply_to(message, bot_message[get_command_name(message)](message))
 
-@bot.message_handler(commands=[bot_command.wiki, bot_command.marks, bot_command.linal])
+
+@bot.message_handler(commands=[bot_command.wiki, bot_command.marks, bot_command.linal, bot_command.recordings])
 def send_md2(message):
     global last_query, CORRECT_IDS
     cleanup()
@@ -128,6 +142,7 @@ def send_md2(message):
         return
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="MarkdownV2", disable_web_page_preview=True)
+
 
 @bot.message_handler(commands=[bot_command.mark_formulas])
 def send_md(message):
@@ -138,8 +153,11 @@ def send_md(message):
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
+
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
-@bot.message_handler(func=lambda x: True and get_command_name(x) not in [bot_command.add, bot_command.get, bot_command.chatid, bot_command.delete])
+@bot.message_handler(
+    func=lambda x: True and get_command_name(x) not in [bot_command.add, bot_command.get, bot_command.chatid,
+                                                        bot_command.delete])
 def process(message):
     try:
         cleanup()
