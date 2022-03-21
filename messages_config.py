@@ -60,7 +60,7 @@ bot_message = {
     )),
 
     bot_command.recordings: '\n'.join((
-          '[Wiki](https://docs.google.com/spreadsheets/d/1wdON8nhfAyfMtm5-ZY7U6ZI2xYPnDkemU5Zh3ZGA58k/edit#gid=0)'
+          '[Записи](https://docs.google.com/spreadsheets/d/1wdON8nhfAyfMtm5-ZY7U6ZI2xYPnDkemU5Zh3ZGA58k/edit#gid=0)',
     )),
 
     bot_command.chatid: lambda message: message.chat.id,
