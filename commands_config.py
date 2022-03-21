@@ -13,5 +13,6 @@ class bot_command:
     mark_formulas = 'mark_formulas'
     marks = 'marks'
     start = 'start'
+    today = 'today'
     userid = 'userid'
     wiki = 'wiki'
