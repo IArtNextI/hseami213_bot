@@ -15,7 +15,7 @@ bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
 last_query = dict()
 last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-todays_schedule = ruz.person_lessons(email = "aakurdun@edu.hse.ru", from_date=last_update_date, to_date=last_update_date)
+todays_schedule = ruz.person_lessons(email = config.email, from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
 CORRECT_IDS = []
@@ -23,7 +23,7 @@ CORRECT_IDS = []
 def update_today_schedule():
     global last_update_date, todays_schedule
     last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-    todays_schedule = ruz.person_lessons(email = "aakurdun@edu.hse.ru", from_date=datetime.datetime.today().strftime('%Y.%m.%d'), to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
+    todays_schedule = ruz.person_lessons(email = config.email, from_date=datetime.datetime.today().strftime('%Y.%m.%d'), to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
 
 def get_command_name(message):
     return message.text.replace("@hseami213_bot", '').split()[0][1:]
