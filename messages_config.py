@@ -34,6 +34,7 @@ bot_message = {
         , '/' + bot_command.marks + '- отобразить список ссылок на таблицы с оценками'
         , '/' + bot_command.linal + '- отобразить ссылки на Yandex.Disk с дз по линалу и на задачник Кострикина'
         , '/' + bot_command.mark_formulas + '- отобразить список формул оценок'
+        , '/' + bot_command.recordings + ' - отобразить ссылку на записи'
     )),
 
     bot_command.mark_formulas: '\n'.join((
