@@ -232,7 +232,7 @@ def process(message):
                 bot.reply_to(message, "И как людям жить? Ладно, записано \\(0-0)/")
             elif ans.lower() in ["не)"]:
                 bot.reply_to(message, "-_- Это матан что ли? Ладно, записано \\(0-0)/")
-            elif ans.lower() in ["Сори, нет("]:
+            elif ans.lower() in ["сори, нет("]:
                 bot.reply_to(message, "(O.o)? Записано... \\(0-0)/")
             elif '.' in ans:
                 new_entry += message.text.strip()
@@ -246,7 +246,7 @@ def process(message):
 
             scheduler.add_job(add_reminder, 'date',
                               run_date=current[-1] - datetime.timedelta(hours=1) - datetime.timedelta(minutes=30),
-                              args=[current[-2], current[-1], chat_id])
+                              args=[current[-2], current[3], chat_id])
             for job in scheduler.get_jobs():
                 logger.debug('My: ' + str(job.trigger))
         elif current[1] == -1:
