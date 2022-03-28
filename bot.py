@@ -1,41 +1,38 @@
 import datetime
+import logging
 import re
-
 import requests
 import ruz
 import telebot
+from apscheduler.schedulers.background import BackgroundScheduler
 from telebot import types
 
 import config
 import key
-
-import logging
-
 from commands_config import bot_command
 from messages_config import bot_message
-from apscheduler.schedulers.background import BackgroundScheduler
+
 
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
 last_query = dict()
 last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-todays_schedule = ruz.person_lessons(email = config.email, from_date=last_update_date, to_date=last_update_date)
+todays_schedule = ruz.person_lessons(email=config.email, from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
 CORRECT_IDS = []
 
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('hseami213_bot')
-logger.setLevel(logging.DEBUG)
 
 scheduler = BackgroundScheduler(timezone=config.timezone)
-logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
 
 def update_today_schedule():
     global last_update_date, todays_schedule
     last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-    todays_schedule = ruz.person_lessons(email = config.email, from_date=datetime.datetime.today().strftime('%Y.%m.%d'), to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
+    todays_schedule = ruz.person_lessons(email=config.email, from_date=datetime.datetime.today().strftime('%Y.%m.%d'),
+                                         to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
 
 
 def get_command_name(message):
@@ -83,16 +80,11 @@ def add_deadline(message):
     bot.reply_to(message, "Название дисциплины?")
 
 
-@bot.message_handler(commands=[bot_command.get])
-def get_deadlines(message):
-    global last_query, CORRECT_IDS
-    cleanup()
-    if not check_IDS(message.chat.id):
-        return
+def get_active_deadlines():
     list_of_active_dealines = []
-    fin = open(config.log_path, 'r')
-    lines = fin.readlines()
-    fin.close()
+    with open(config.log_path, 'r') as fin:
+        lines = fin.readlines()
+    logger.info('Active deadlines:')
     for line in lines:
         try:
             tad = line.strip().split(';')[0]
@@ -109,21 +101,34 @@ def get_deadlines(message):
                                                                                                               tzinfo=config.timezone):
                 # This line satisfies the condition, parse it
                 splitted = line.strip().split(';')
-                res = splitted[0] + ' --- '
-                if splitted[2]:
-                    res += '<a href=\"' + splitted[2] + '\">' + splitted[1] + "</a>\n"
-                else:
-                    res += splitted[1] + '\n'
-                print(res)
-                list_of_active_dealines.append([res,
-                                                datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59,
-                                                                  tzinfo=config.timezone)])
-        except:
-            pass
-    if list_of_active_dealines:
-        list_of_active_dealines.sort(key=lambda x: x[1])
-        bot.reply_to(message, 'Список ближайших дедлайнов:\n\n' + ''.join([x[0] for x in list_of_active_dealines]),
-                     parse_mode="HTML", disable_web_page_preview=True)
+                logger.info(splitted)
+                list_of_active_dealines.append([ datetime.datetime(datte[2], datte[1], datte[0], timme[0], timme[1], 59,
+                                                                  tzinfo=config.timezone), *splitted])
+        except Exception as e:
+            logger.error(e)
+    return list_of_active_dealines
+
+
+@bot.message_handler(commands=[bot_command.get])
+def get_deadlines(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message.chat.id):
+        return
+    list_of_active_deadlines = get_active_deadlines()
+    if list_of_active_deadlines:
+        list_of_active_deadlines.sort(key=lambda x: x[0])
+        deadlines_message = 'Список ближайших дедлайнов:\n\n'
+
+        for date, *splitted in list_of_active_deadlines:
+            res = splitted[0] + ' --- '
+            if splitted[2]:
+                res += '<a href=\"' + splitted[2] + '\">' + splitted[1] + "</a>\n"
+            else:
+                res += splitted[1] + '\n'
+            deadlines_message += res
+
+        bot.reply_to(message, deadlines_message, parse_mode="HTML", disable_web_page_preview=True)
     else:
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
 
@@ -134,9 +139,8 @@ def delete_message(message):
     cleanup()
     if not check_IDS(message.chat.id):
         return
-    fin = open(config.log_path, 'r')
-    lines = fin.readlines()
-    fin.close()
+    with open(config.log_path, 'r') as fin:
+        lines = fin.readlines()
     res = 'Выберите, какую запись удалить:\n\n'
     for i in range(max(len(lines) - 15, 0), len(lines)):
         res += str(i) + " :: " + lines[i]
@@ -184,15 +188,16 @@ def send_todays_schedule(message):
     if last_update_date < datetime.datetime.today().strftime('%Y.%m.%d'):
         update_today_schedule()
     if len(todays_schedule) == 0:
-        bot.reply_to(message, 'Нет у тебя сегодня пар, дурень. Иди отдохни...', parse_mode="Markdown", disable_web_page_preview=True)
+        bot.reply_to(message, 'Нет у тебя сегодня пар, дурень. Иди отдохни...', parse_mode="Markdown",
+                     disable_web_page_preview=True)
         return
     res = bot_message[bot_command.today](todays_schedule)
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
 
-def add_reminder(task, deadline, chat_id):
+def add_reminder(name, deadline, chat_id):
     logger.debug('sending reminder!')
-    text = f'Дедлайн по {task} : {deadline}'
+    text = f'Дедлайн по {name} : {deadline}'
     bot.send_message(chat_id, text)
 
 
@@ -251,30 +256,46 @@ def process(message):
                 logger.debug('My: ' + str(job.trigger))
         elif current[1] == -1:
             index = int(message.text.strip())
-            fin = open(config.log_path, 'r')
-            lines = fin.readlines()
-            fin.close()
+            with open(config.log_path, 'r') as fin:
+                lines = fin.readlines()
             if index >= len(lines):
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")
             else:
-                fout = open(config.log_path, 'w')
-                for i in range(len(lines)):
-                    if i == index:
-                        continue
-                    print(lines[i], file=fout, end='')
-                fout.close()
+                with open(config.log_path, 'w') as fout:
+                    for i in range(len(lines)):
+                        if i == index:
+                            continue
+                        fout.write(lines[i])
                 last_query[user] = (datetime.datetime.now(), 0)
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
     except Exception as e:
-        logging.error(e)
+        logger.error(e)
         bot.reply_to(message, "Sorry it seems it a DDOS attack")
 
 
-if __name__ == "__main__":
-    logging.info("hseami213_bot")
+def process_deadlines():
+    list_of_active_deadlines = get_active_deadlines()
+    for date, *splitted in list_of_active_deadlines:
+        scheduler.add_job(add_reminder, 'date',
+                          run_date=max(date - datetime.timedelta(hours=1) - datetime.timedelta(minutes=30),
+                                       datetime.datetime.now(tz=config.timezone)
+                                       ),
+                          args=[splitted[0], splitted[1], -1001597210278])
+
+
+def setup(debug=False):
+    if debug:
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+    logger.info("hseami213_bot")
     scheduler.start()
+    process_deadlines()
+
+
+if __name__ == "__main__":
+    setup(debug=True)
     while True:
         try:
             bot.polling()
-        except:
-            pass
+        except Exception as e:
+            logger.error(e)
