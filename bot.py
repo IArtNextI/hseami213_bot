@@ -22,7 +22,7 @@ last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
 todays_schedule = ruz.person_lessons(email = config.email, from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
-CORRECT_IDS = []
+CORRECT_IDS = key.CORRECT_IDS
 
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('hseami213_bot')
