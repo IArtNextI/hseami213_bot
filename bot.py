@@ -8,8 +8,12 @@ from telebot import types
 
 import config
 import key
+
+import logging
+
 from commands_config import bot_command
 from messages_config import bot_message
+from apscheduler.schedulers.background import BackgroundScheduler
 
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
@@ -19,6 +23,14 @@ todays_schedule = ruz.person_lessons(email = config.email, from_date=last_update
 queries_without_cleanup = 0
 
 CORRECT_IDS = []
+
+logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('hseami213_bot')
+logger.setLevel(logging.DEBUG)
+
+scheduler = BackgroundScheduler(timezone=config.timezone)
+logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+
 
 def update_today_schedule():
     global last_update_date, todays_schedule
@@ -178,6 +190,12 @@ def send_todays_schedule(message):
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
 
+def add_reminder(task, deadline, chat_id):
+    logger.debug('sending reminder!')
+    text = f'Дедлайн по {task} : {deadline}'
+    bot.send_message(chat_id, text)
+
+
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
 @bot.message_handler(
     func=lambda x: True and get_command_name(x) not in [bot_command.add, bot_command.get, bot_command.chatid,
@@ -190,6 +208,8 @@ def process(message):
             return
         user = message.from_user.id
         current = last_query.get(user, None)
+        deadline = datetime.datetime.now()
+        name = ''
         if current is None or (datetime.datetime.now() - current[0]).total_seconds() > 180:
             return
         if current[1] == 1:
@@ -197,39 +217,38 @@ def process(message):
             last_query[user] = (datetime.datetime.now(), 2, name)
             bot.reply_to(message, "Дедлайн? (dd.mm.yyyy hh:mm)")
         elif current[1] == 2:
-            tad = message.text.strip()
-            datte = list(map(int, tad.split()[0].split('.')))
-            timme = list(map(int, tad.split()[1].split(':')))
-            last_query[user] = (datetime.datetime.now(), 3, current[2], message.text.strip())
+            msg = message.text.strip()
+            date, time = msg.split()
+            deadline = datetime.datetime(*map(int, date.split('.')[::-1]), *map(int, time.split(':')), 59,
+                                         tzinfo=config.timezone)
+            last_query[user] = (datetime.datetime.now(), 3, current[2], msg, current[-1], deadline)
             bot.reply_to(message, "Ссылочку бы...")
         elif current[1] == 3:
             ans = message.text.strip()
+            new_entry = current[3] + ';' + current[2] + ';'
+            last_query[user] = (datetime.datetime.now(), 0)
+
             if ans.lower() in ['no', 'нет', 'не', 'неа', 'не-а', '-']:
-                fout = open(config.log_path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
                 bot.reply_to(message, "И как людям жить? Ладно, записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             elif ans.lower() in ["не)"]:
-                fout = open(config.log_path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
                 bot.reply_to(message, "-_- Это матан что ли? Ладно, записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
-            elif ans.lower() in ["сори, нет("]:
-                fout = open(config.log_path, 'a')
-                print(current[3] + ';' + current[2] + ';', file=fout)
-                fout.close()
+            elif ans.lower() in ["Сори, нет("]:
                 bot.reply_to(message, "(O.o)? Записано... \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             elif '.' in ans:
-                fout = open(config.log_path, 'a')
-                print(current[3] + ';' + current[2] + ';' + message.text.strip(), file=fout)
-                fout.close()
+                new_entry += message.text.strip()
                 bot.reply_to(message, "Записано \\(0-0)/")
-                last_query[user] = (datetime.datetime.now(), 0)
             else:
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")
+                return
+
+            with open(config.log_path, 'a') as fout:
+                fout.write(new_entry + '\n')
+
+            scheduler.add_job(add_reminder, 'date',
+                              run_date=current[-1] - datetime.timedelta(hours=1) - datetime.timedelta(minutes=30),
+                              args=[current[-2], current[-1], chat_id])
+            for job in scheduler.get_jobs():
+                logger.debug('My: ' + str(job.trigger))
         elif current[1] == -1:
             index = int(message.text.strip())
             fin = open(config.log_path, 'r')
@@ -246,12 +265,14 @@ def process(message):
                 fout.close()
                 last_query[user] = (datetime.datetime.now(), 0)
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
-    except:
+    except Exception as e:
+        logging.error(e)
         bot.reply_to(message, "Sorry it seems it a DDOS attack")
 
 
 if __name__ == "__main__":
-    print("hseami213_bot")
+    logging.info("hseami213_bot")
+    scheduler.start()
     while True:
         try:
             bot.polling()
