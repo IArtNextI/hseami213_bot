@@ -8,7 +8,6 @@ class bot_command:
     delete = 'delete'
     get = 'get'
     help = 'help'
-    help = 'help'
     linal = 'linal'
     mark_formulas = 'mark_formulas'
     marks = 'marks'

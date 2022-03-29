@@ -9,6 +9,7 @@ from telebot import types
 
 import config
 import key
+import admin
 from commands_config import bot_command
 from messages_config import bot_message
 
@@ -20,7 +21,8 @@ last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
 todays_schedule = ruz.person_lessons(email=config.email, from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
-CORRECT_IDS = key.CORRECT_IDS
+CORRECT_IDS = admin.CORRECT_IDS.copy()
+ADMIN_IDS = admin.ADMIN_IDS.copy()
 
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('hseami213_bot')
@@ -39,8 +41,8 @@ def get_command_name(message):
     return message.text.replace("@hseami213_bot", '').split()[0][1:]
 
 
-def check_IDS(chatid):
-    return not CORRECT_IDS or chatid in CORRECT_IDS
+def check_IDS(message):
+    return not CORRECT_IDS or message.chat.id in CORRECT_IDS or message.from_user.id in ADMIN_IDS
 
 
 def cleanup():
@@ -62,7 +64,7 @@ def add_deadline(message):
     global last_query, CORRECT_IDS
     cleanup()
     chat_id = message.chat.id
-    if not check_IDS(chat_id):
+    if not check_IDS(message):
         return
     bot.reply_to(message, bot_message[bot_command.help])
 
@@ -72,7 +74,7 @@ def add_deadline(message):
     global last_query, CORRECT_IDS
     cleanup()
     chat_id = message.chat.id
-    if not check_IDS(chat_id):
+    if not check_IDS(message):
         return
     user = message.from_user.id
     current = last_query.get(user, None)
@@ -113,7 +115,7 @@ def get_active_deadlines():
 def get_deadlines(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
     list_of_active_deadlines = get_active_deadlines()
     if list_of_active_deadlines:
@@ -137,7 +139,7 @@ def get_deadlines(message):
 def delete_message(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
     with open(config.log_path, 'r') as fin:
         lines = fin.readlines()
@@ -153,7 +155,7 @@ def delete_message(message):
 def get_info(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
     bot.reply_to(message, bot_message[get_command_name(message)](message))
 
@@ -162,7 +164,7 @@ def get_info(message):
 def send_md2(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="MarkdownV2", disable_web_page_preview=True)
@@ -172,7 +174,7 @@ def send_md2(message):
 def send_md(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
@@ -182,7 +184,7 @@ def send_md(message):
 def send_todays_schedule(message):
     global last_query, CORRECT_IDS
     cleanup()
-    if not check_IDS(message.chat.id):
+    if not check_IDS(message):
         return
 
     if last_update_date < datetime.datetime.today().strftime('%Y.%m.%d'):
@@ -193,6 +195,84 @@ def send_todays_schedule(message):
         return
     res = bot_message[bot_command.today](todays_schedule)
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
+
+
+@bot.message_handler(commands=['addid'])
+def add_ID(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        candidate_id = int(message.text.split()[1])
+        CORRECT_IDS.append(candidate_id)
+        with open(config.ids_path, 'w+') as fout:
+            print(candidate_id, file=fout)
+        bot.reply_to(message, "Done")
+    except Exception as e:
+        logger.error(e)
+
+
+@bot.message_handler(commands=['readids', 'printids', 'getids'])
+def read_ID(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        result = ''
+        for index, line in enumerate(CORRECT_IDS):
+            result += "--> " + str(line) + '\n'
+        bot.reply_to(message, result)
+    except Exception as e:
+        logger.error(e)
+
+
+@bot.message_handler(commands=['delid'])
+def delete_ID(message):
+    global CORRECT_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        current_id = int(message.text.split()[1])
+        found_id = False
+        fin = open(config.ids_path, 'r')
+        lines = fin.readlines()
+        fin.close()
+        fout = open(config.ids_path, 'w')
+        CORRECT_IDS = admin.CORRECT_IDS.copy()
+        for line in lines:
+            if int(line) == current_id:
+                found_id = True
+                continue
+            CORRECT_IDS.append(int(line))
+            print(line, file=fout, end='')
+        fout.close()
+        bot.reply_to(message, "Done" if found_id else "Did not find such entry")
+    except Exception as e:
+        logger.error(e)
+
+
+@bot.message_handler(commands=['register'])
+def register_chat(message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    try:
+        candidate_id = message.chat.id
+        CORRECT_IDS.append(candidate_id)
+        with open(config.ids_path, 'w+') as fout:
+            print(candidate_id, file=fout)
+        bot.reply_to(message, "Done")
+    except Exception as e:
+        logger.error(e)
+
+
+@bot.message_handler(commands=['resetids'])
+def reset_IDS(message):
+    global ADMIN_IDS, CORRECT_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    ADMIN_IDS = admin.ADMIN_IDS.copy()
+    CORRECT_IDS = admin.CORRECT_IDS.copy()
+    with open(config.ids_path, 'w'):
+        pass
+    bot.reply_to(message, "Done")
 
 
 def add_reminder(name, deadline, chat_id):
@@ -209,7 +289,7 @@ def process(message):
     try:
         cleanup()
         chat_id = message.chat.id
-        if not check_IDS(message.chat.id):
+        if not check_IDS(message):
             return
         user = message.from_user.id
         current = last_query.get(user, None)
@@ -283,6 +363,15 @@ def process_deadlines():
                           args=[splitted[0], splitted[1], -1001597210278])
 
 
+def load_IDS():
+    with open(config.ids_path, 'r') as fin:
+        lines = fin.readlines()
+        for line in lines:
+            c = line.replace('\n', '')
+            current_id = int(c)
+            CORRECT_IDS.append(current_id)
+
+
 def setup(debug=False):
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -290,6 +379,7 @@ def setup(debug=False):
     logger.info("hseami213_bot")
     scheduler.start()
     process_deadlines()
+    load_IDS()
 
 
 if __name__ == "__main__":
