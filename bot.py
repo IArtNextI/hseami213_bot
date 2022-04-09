@@ -197,6 +197,17 @@ def send_todays_schedule(message):
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
 
+@bot.message_handler(commands=[bot_command.oakbus, 'bus', 'avtobus', 'oakpass', 'avtozak', 'partyvan', 'boynextbus'])
+def send_bus_schedule(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message):
+        return
+
+    res = bot_message[bot_command.oakbus]
+    bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
+
+
 @bot.message_handler(commands=['addid'])
 def add_ID(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -279,6 +290,16 @@ def add_reminder(name, deadline, chat_id):
     logger.debug('sending reminder!')
     text = f'Дедлайн по {name} : {deadline}'
     bot.send_message(chat_id, text)
+
+
+@bot.message_handler(commands=['levo'])
+def marks(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message):
+        return
+    res = """<a href="https://t.me/c/1567266992/88">Ответы</a>"""
+    bot.reply_to(message, res, parse_mode="HTML", disable_web_page_preview=True)
 
 
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)

@@ -35,6 +35,7 @@ bot_message = {
         , '/' + bot_command.linal + '- отобразить ссылки на Yandex.Disk с дз по линалу и на задачник Кострикина'
         , '/' + bot_command.mark_formulas + '- отобразить список формул оценок'
         , '/' + bot_command.recordings + ' - отобразить ссылку на записи'
+        , '/' + bot_command.oakbus + ' - ссылка на расписание автобусов Дубков'
     )),
 
     bot_command.mark_formulas: '\n'.join((
@@ -79,6 +80,8 @@ bot_message = {
     bot_command.recordings: '\n'.join((
           '[Записи](https://docs.google.com/spreadsheets/d/1wdON8nhfAyfMtm5-ZY7U6ZI2xYPnDkemU5Zh3ZGA58k/edit#gid=0)',
     )),
+
+    bot_command.oakbus: '[Расписание](https://t.me/dubki/202)',
 
     bot_command.chatid: lambda message: message.chat.id,
 

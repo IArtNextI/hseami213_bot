@@ -16,3 +16,4 @@ class bot_command:
     userid = 'userid'
     wiki = 'wiki'
     recordings = 'recordings'
+    oakbus = 'oakbus'
