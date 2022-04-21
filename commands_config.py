@@ -17,3 +17,6 @@ class bot_command:
     wiki = 'wiki'
     recordings = 'recordings'
     oakbus = 'oakbus'
+    subscribe = 'subscribe'
+    unsubscribe = 'unsubscribe'
+    all = 'all'
