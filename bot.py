@@ -1,19 +1,21 @@
 import datetime
 import logging
 import re
+
 import requests
 import ruz
 import telebot
 from apscheduler.schedulers.background import BackgroundScheduler
 from telebot import types
 
+import admin
 import config
 import key
-import admin
+import subscribe
 from commands_config import bot_command
 from messages_config import bot_message
 
-
+subscribers = subscribe.SubscriberHolder()
 bot = telebot.TeleBot(key.TOKEN, parse_mode=None)
 
 last_query = dict()
@@ -58,9 +60,31 @@ def cleanup():
                 newdict[k] = v
         last_query = newdict
 
+@bot.message_handler(commands=[bot_command.subscribe, bot_command.unsubscribe])
+def user_subscribe(message):
+    global last_query, CORRECT_IDS, subscribers
+    cleanup()
+    chat_id = message.chat.id
+    if not check_IDS(message):
+        return
+    if get_command_name(message) == bot_command.subscribe:
+        if len(message.text.split()) > 2:
+            bot.reply_to(message, 'Чет ты фигню мне пишешь, не будет тебя в списке')
+        elif len(message.text.split()) == 2 and len(message.text.split()[1]) > 1:
+            bot.reply_to(message, 'Дай один смайл/символ, а то хз как тебя звать то')
+        elif len(message.text.split()) == 2 and len(message.text.split()[1]) == 1:
+            subscribers.subscribe(subscribe.Subscriber(message.from_user.id, message.from_user.username, message.text.split()[1]))
+            bot.reply_to(message, bot_message[bot_command.subscribe])
+        else:
+            subscribers.subscribe(subscribe.Subscriber(message.from_user.id, message.from_user.username))
+            bot.reply_to(message, bot_message[bot_command.subscribe])
+    else:
+        subscribers.unsubscribe(subscribe.Subscriber(message.from_user.id, message.from_user.username))
+        bot.reply_to(message, bot_message[bot_command.unsubscribe])
+
 
 @bot.message_handler(commands=[bot_command.start, bot_command.help])
-def add_deadline(message):
+def start(message):
     global last_query, CORRECT_IDS
     cleanup()
     chat_id = message.chat.id
@@ -179,6 +203,14 @@ def send_md(message):
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
+@bot.message_handler(commands=[bot_command.all])
+def slash_all(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message):
+        return
+    res = subscribers.get_beautiful_links()
+    bot.reply_to(message, ''.join(res), parse_mode="MarkdownV2", disable_web_page_preview=True)
 
 @bot.message_handler(commands=[bot_command.today])
 def send_todays_schedule(message):
@@ -288,8 +320,9 @@ def reset_IDS(message):
 
 def add_reminder(name, deadline, chat_id):
     logger.debug('sending reminder!')
-    text = f'Дедлайн по {name} : {deadline}'
-    bot.send_message(chat_id, text)
+    subs = ''.join(subscribers.get_beautiful_links())
+    text = f'Дорогие подпищики: {subs}\n' + f'Дедлайн по {name} : {deadline}'
+    bot.send_message(chat_id, text, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=['levo'])
