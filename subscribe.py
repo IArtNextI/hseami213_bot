@@ -45,6 +45,14 @@ class SubscriberHolder:
         with self.__subscribersMutex:
             return self.__subscribers.loc[userid]
 
+    def get_subs_list(self):
+        with self.__subscribersMutex:
+            subs_list = list()
+            for index, row in self.__subscribers.iterrows():
+                if row['IsSub']:
+                    subs_list.append(f"{row['Username']}: {row['Emoji']}")
+        return subs_list
+
     def get_beautiful_links(self):
         with self.__subscribersMutex:
             linklist = list()
