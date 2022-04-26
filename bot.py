@@ -67,6 +67,7 @@ def user_subscribe(message):
     chat_id = message.chat.id
     if not check_IDS(message):
         return
+
     if get_command_name(message) == bot_command.subscribe:
         if len(message.text.split()) > 2:
             bot.reply_to(message, 'Чет ты фигню мне пишешь, не будет тебя в списке')
@@ -203,14 +204,21 @@ def send_md(message):
     res = bot_message[get_command_name(message)]
     bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
-@bot.message_handler(commands=[bot_command.all])
+
+@bot.message_handler(commands=[bot_command.all, bot_command.subs])
 def slash_all(message):
     global last_query, CORRECT_IDS
     cleanup()
     if not check_IDS(message):
         return
-    res = subscribers.get_beautiful_links()
-    bot.reply_to(message, ''.join(res), parse_mode="MarkdownV2", disable_web_page_preview=True)
+
+    if get_command_name(message) == bot_command.subs:
+        res = '\n'.join(subscribers.get_subs_list())
+    else:
+        res = ''.join(subscribers.get_beautiful_links())
+        
+    bot.reply_to(message, res, parse_mode="MarkdownV2", disable_web_page_preview=True)
+
 
 @bot.message_handler(commands=[bot_command.today])
 def send_todays_schedule(message):
