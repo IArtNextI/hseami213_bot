@@ -345,8 +345,8 @@ def marks(message):
 
 # @bot.message_handler(func=lambda x: x.text[:4] == '/add' and len(x.text) > 4)
 @bot.message_handler(
-    func=lambda x: True and get_command_name(x) not in [bot_command.add, bot_command.get, bot_command.chatid,
-                                                        bot_command.delete])
+    func=lambda x: x.content_type == 'text' and 
+                   get_command_name(x) not in [bot_command.add, bot_command.get, bot_command.chatid, bot_command.delete])
 def process(message):
     try:
         cleanup()
