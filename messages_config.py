@@ -5,15 +5,21 @@ from commands_config import bot_command
 https://core.telegram.org/bots/api#markdownv2-style
 '''
 
-def get_formated_todays_schedule(todays_schedule):
+def NoneToString(value):
+    return value or 'n/a'
+
+def GetLessonValue(lesson, key):
+    return NoneToString(lesson.get(key, 'n/a'))
+
+def GetFormattedTodaysSchedule(todays_schedule):
     res = '~~~~~~~~~\n'
     for lesson in todays_schedule:
         res += '\n'.join((
             ''
-            , lesson['kindOfWork'] + ': ' + lesson['discipline'].replace(" (рус)", '')
-            , 'Аудитория: ' + lesson['auditorium']
-            , 'Начало: ' + lesson['beginLesson']
-            , 'Конец: ' + lesson['endLesson']
+            , GetLessonValue(lesson, 'kindOfWork') + ': ' + GetLessonValue(lesson, 'discipline').replace(" (рус)", '')
+            , 'Аудитория: ' + GetLessonValue(lesson, 'auditorium')
+            , 'Начало: ' + GetLessonValue(lesson, 'beginLesson')
+            , 'Конец: ' + GetLessonValue(lesson, 'endLesson')
             , ''
             , '~~~~~~~~~'
             , ''
