@@ -27,7 +27,7 @@ class Subscriber:
 
 
 class SubscriberHolder:
-    def __init__(self, subscribers_filepath = config.SUBSCRIBERS_FILEPATH):
+    def __init__(self, subscribers_filepath = config.PATH_SUBSCRIBERS):
         self. __subscribers_filepath = subscribers_filepath
 
         self.__subscribers = pandas.read_csv(
@@ -73,4 +73,4 @@ class SubscriberHolder:
 
     __subscribers = pandas.DataFrame
     __subscribersMutex = threading.RLock()
-    __subscribers_filepath = config.SUBSCRIBERS_FILEPATH
+    __subscribers_filepath = config.PATH_SUBSCRIBERS

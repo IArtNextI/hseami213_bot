@@ -6,3 +6,5 @@ __pycache__/*
 hseami213_bot/*
 subscribers.csv
 admin.py
+data/
+.DS_Store
