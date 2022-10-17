@@ -45,7 +45,7 @@ class DeadlineManager:
         elif condition == DeadlineManager.Condition.DATE:
             bot.reply_to(message, 'Дедлайн? (dd.mm.yyyy hh:mm)?')
         elif condition == DeadlineManager.Condition.URL:
-            bot.reply_to(message, 'Ссылочку бы...')  
+            bot.reply_to(message, 'Ссылочку бы...')
         elif condition == DeadlineManager.Condition.DONE:
             bot.reply_to(message, 'Записано')
 

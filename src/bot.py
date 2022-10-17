@@ -340,7 +340,7 @@ def process(message):
     if not check_IDs(message):
         return
 
-    if get_command_name(message) != BotCommand.add and deadline_manager.last_query.get(message.from_user.id) is None:
+    if get_command_name(message) != BotCommand.add and deadline_manager.last_query.get((message.from_user.id, message.chat.id)) is None:
         return
 
     if (new_deadline := deadline_manager.update(bot, message)) is not None:
