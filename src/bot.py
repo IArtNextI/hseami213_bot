@@ -238,7 +238,7 @@ def add_ID(message):
     try:
         candidate_id = int(message.text.split()[1])
         CORRECT_IDs.append(candidate_id)
-        with open(config.ids_path, 'w+') as fout:
+        with open(config.PATH_IDS, 'w+') as fout:
             print(candidate_id, file=fout)
         bot.reply_to(message, "Done")
     except Exception as e:
@@ -266,10 +266,10 @@ def delete_ID(message):
     try:
         current_id = int(message.text.split()[1])
         found_id = False
-        fin = open(config.ids_path, 'r')
+        fin = open(config.PATH_IDS, 'r')
         lines = fin.readlines()
         fin.close()
-        fout = open(config.ids_path, 'w')
+        fout = open(config.PATH_IDS, 'w')
         CORRECT_IDs = admin.CORRECT_IDs.copy()
         for line in lines:
             if int(line) == current_id:
@@ -290,7 +290,7 @@ def register_chat(message):
     try:
         candidate_id = message.chat.id
         CORRECT_IDs.append(candidate_id)
-        with open(config.ids_path, 'w+') as fout:
+        with open(config.PATH_IDS, 'w+') as fout:
             print(candidate_id, file=fout)
         bot.reply_to(message, "Done")
     except Exception as e:
@@ -304,7 +304,7 @@ def reset_IDs(message):
         return
     ADMIN_IDs = admin.ADMIN_IDs.copy()
     CORRECT_IDs = admin.CORRECT_IDs.copy()
-    with open(config.ids_path, 'w'):
+    with open(config.PATH_IDS, 'w'):
         pass
     bot.reply_to(message, "Done")
 
