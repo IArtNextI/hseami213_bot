@@ -33,13 +33,13 @@ class DeadlineManager:
         if self.queries_without_cleanup >= DeadlineManager.MAX_QUERIES_WITHOUT_CLEANUP:
             self.queries_without_cleanup = 0
             new_dict = {}
-            for user, (deadline, condition, timestamp) in self.last_query.items():
+            for (user, chat), (deadline, condition, timestamp) in self.last_query.items():
                 if time.time() - timestamp <= DeadlineManager.MAX_QUERY_LIFETIME:
-                    new_dict[user] = [deadline, condition, timestamp]
+                    new_dict[(user, chat)] = [deadline, condition, timestamp]
             self.last_query = new_dict
 
     @staticmethod
-    def ask_user(user, bot, condition, message):
+    def ask(bot, condition, message):
         if condition == DeadlineManager.Condition.TEXT:
             bot.reply_to(message, 'Название дисциплины?')
         elif condition == DeadlineManager.Condition.DATE:
@@ -52,12 +52,13 @@ class DeadlineManager:
     def update(self, bot, message):
         self.cleanup()
         user = message.from_user.id
-        cur = self.last_query.get(user, None)
+        chat = message.chat.id
+        cur = self.last_query.get((user, chat), None)
         message_text = message.text.strip()
         try:
             if cur is None:
-                self.last_query[user] = [Deadline(), DeadlineManager.Condition.NEW, time.time()]
-                cur = self.last_query[user]
+                self.last_query[(user, chat)] = [Deadline(), DeadlineManager.Condition.NEW, time.time()]
+                cur = self.last_query[(user, chat)]
             elif cur[1] == DeadlineManager.Condition.TEXT:
                 cur[0].set('text', message_text)
             elif cur[1] == DeadlineManager.Condition.DATE:
@@ -67,12 +68,12 @@ class DeadlineManager:
                     cur[0].set('url', message_text)
 
             cur[1] = DeadlineManager.Condition(cur[1] + 1)
-            data = DeadlineManager.ask_user(user, bot, cur[1], message)
+            data = DeadlineManager.ask(bot, cur[1], message)
             if (cur[1] == DeadlineManager.Condition.DONE):
-                del self.last_query[user]
+                del self.last_query[(user, chat)]
                 return cur[0]
         except:
-            bot.reply_to(message, 'Sorry, it seems like a DDOS attack:(')
+            bot.reply_to(message, 'Sorry, it seems it a DDOS attack')
         return None
 
     class Condition(IntEnum):
