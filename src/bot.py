@@ -6,7 +6,8 @@ import key
 import subscribe
 from config_commands import BotCommand
 from config_messages import BotMessage
-from models import Deadline, DeadlineManager
+from deadline_manager import DeadlineManager
+from models import Deadline
 from util import *
 
 import csv
@@ -34,23 +35,12 @@ queries_without_cleanup = 0
 CORRECT_IDs = admin.CORRECT_IDs.copy()
 ADMIN_IDs = admin.ADMIN_IDs.copy()
 
-# logger
-logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('hseami213_bot')
-
-# scheduler
-scheduler = BackgroundScheduler(timezone=config.TIMEZONE)
-
 
 def update_today_schedule():
     global last_update_date, todays_schedule
     last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
     todays_schedule = ruz.person_lessons(email=config.email, from_date=datetime.datetime.today().strftime('%Y.%m.%d'),
                                          to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
-
-
-def get_command_name(message):
-    return message.text.replace("@hseami213_bot", '').split()[0][1:]
 
 
 def check_IDs(message):
@@ -103,21 +93,6 @@ def start(message):
         return
     bot.reply_to(message, BotMessage[BotCommand.help])
 
-def get_active_deadlines(chat_id):
-    try:
-        with open(config.PATH_CHAT_DATA.format(chat_id), newline='', mode='r') as fin:
-            reader = csv.reader(fin)
-            next(reader)
-            res = []
-            for row in reader:
-                row = [convert(value) for convert, value in zip(config.DEADLINE_FIELDS_TYPES, row)]
-                res.append(Deadline(*row))
-                if (res[-1].timestamp < time.time()):
-                    res.pop()
-            return res
-    except FileNotFoundError:
-        return []
-
 
 @bot.message_handler(commands=[BotCommand.get])
 def get_deadlines(message):
@@ -141,22 +116,6 @@ def get_deadlines(message):
         bot.reply_to(message, deadlines_message, parse_mode="HTML", disable_web_page_preview=True)
     else:
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
-
-
-@bot.message_handler(commands=[BotCommand.delete])
-def delete_message(message):
-    global last_query, CORRECT_IDs
-    cleanup()
-    if not check_IDs(message):
-        return
-    with open(config.log_path, 'r') as fin:
-        lines = fin.readlines()
-    res = 'Выберите, какую запись удалить:\n\n'
-    for i in range(max(len(lines) - 15, 0), len(lines)):
-        res += str(i) + " :: " + lines[i]
-    bot.reply_to(message, res, disable_web_page_preview=True)
-    user = message.from_user.id
-    last_query[user] = (datetime.datetime.now(), -1)
 
 
 @bot.message_handler(commands=[BotCommand.userid, BotCommand.chatid])
@@ -258,29 +217,15 @@ def read_ID(message):
         logger.error(e)
 
 
-@bot.message_handler(commands=['delid'])
-def delete_ID(message):
+@bot.message_handler(
+    func=lambda x: get_command_name(x) == BotCommand.delete or deadline_manager.has_active_delete(x)
+)
+def delete(message):
     global CORRECT_IDs
     if message.from_user.id not in ADMIN_IDs:
         return
-    try:
-        current_id = int(message.text.split()[1])
-        found_id = False
-        fin = open(config.PATH_IDS, 'r')
-        lines = fin.readlines()
-        fin.close()
-        fout = open(config.PATH_IDS, 'w')
-        CORRECT_IDs = admin.CORRECT_IDs.copy()
-        for line in lines:
-            if int(line) == current_id:
-                found_id = True
-                continue
-            CORRECT_IDs.append(int(line))
-            print(line, file=fout, end='')
-        fout.close()
-        bot.reply_to(message, "Done" if found_id else "Did not find such entry")
-    except Exception as e:
-        logger.error(e)
+    
+    deadline_manager.delete(bot, message)
 
 
 @bot.message_handler(commands=['register'])
@@ -309,17 +254,6 @@ def reset_IDs(message):
     bot.reply_to(message, "Done")
 
 
-def add_reminder(name, timestamp, chat_id):
-    '''
-    Function that sends deadline notification
-    Used with scheduler
-    '''
-    logger.debug('sending reminder!')
-    subs = ''.join(subscribers.get_beautiful_links())
-    text = f'Дорогие подпищики: {subs}\n' + f'Дедлайн по {name} : {timestamp_to_date(timestamp)}'
-    bot.send_message(chat_id, text, parse_mode="Markdown")
-
-
 @bot.message_handler(commands=['levo'])
 def marks(message):
     global last_query, CORRECT_IDs
@@ -331,36 +265,26 @@ def marks(message):
 
 
 @bot.message_handler(
-    func=lambda x: x.content_type == 'text' and 
-                   get_command_name(x) not in [BotCommand.get, BotCommand.chatid, BotCommand.delete])
-def process(message):
+    func=lambda x: get_command_name(x) == BotCommand.add or deadline_manager.has_active_add(x)
+)
+def add(message):
     '''
     Process one step of creating new deadline
     '''
     if not check_IDs(message):
         return
 
-    if get_command_name(message) != BotCommand.add and deadline_manager.last_query.get((message.from_user.id, message.chat.id)) is None:
-        return
+    deadline_manager.add(bot, message)
 
-    if (new_deadline := deadline_manager.update(bot, message)) is not None:
-        with open(config.PATH_CHAT_DATA.format(message.chat.id), newline='', mode='a') as file:
-            file.write('\n' + ','.join([str(new_deadline.timestamp), new_deadline.text, new_deadline.url]))
-        scheduler.add_job(add_reminder, 'date',
-                          run_date=max(datetime.datetime.fromtimestamp(new_deadline.timestamp, tz=config.TIMEZONE) - datetime.timedelta(hours=1),
-                                       datetime.datetime.now(tz=config.TIMEZONE)),
-                          args=[new_deadline.text, new_deadline.timestamp, message.chat.id])
 
 def process_deadlines(chat_id):
     '''
     Add existing deadlines for chat: chat_id to scheduler
     '''
     for deadline in get_active_deadlines(chat_id):
-        print(deadline)
-        scheduler.add_job(add_reminder, 'date',
-                          run_date=max(datetime.datetime.fromtimestamp(deadline.timestamp, tz=config.TIMEZONE) - datetime.timedelta(hours=1),
-                                       datetime.datetime.now(tz=config.TIMEZONE)),
-                          args=[deadline.text, deadline.timestamp, chat_id])
+        logger.info(deadline)
+        schedule_reminder(deadline, chat_id)
+
 
 def load_IDs():
     '''
