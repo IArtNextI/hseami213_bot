@@ -2,6 +2,7 @@ import config
 import csv
 import datetime
 import logging
+import pytz
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -60,7 +61,7 @@ def schedule_reminder(new_deadline, chat):
     '''
     run_date = max(datetime.datetime.fromtimestamp(new_deadline.timestamp, tz=config.TIMEZONE) - datetime.timedelta(hours=1), datetime.datetime.now(tz=config.TIMEZONE))
     scheduler.add_job(
-        send_reminder, 
+        send_reminder,
         'date',
         run_date=run_date,
         args=[new_deadline.text, new_deadline.timestamp, chat]
@@ -68,8 +69,11 @@ def schedule_reminder(new_deadline, chat):
 
 
 def timestamp_to_date(timestamp):
-    return datetime.datetime.fromtimestamp(timestamp, tz=config.TIMEZONE).strftime(config.TIME_FORMAT)
+    return datetime.datetime.fromtimestamp(timestamp, tz=pytz.utc).astimezone(config.TIMEZONE).strftime(config.TIME_FORMAT)
 
 
 def date_to_timestamp(date):
-    return datetime.datetime.strptime(date, config.TIME_FORMAT).astimezone(config.TIMEZONE).timestamp()
+    dt = datetime.datetime.strptime(date, config.TIME_FORMAT)
+    dt = dt.replace(tzinfo=config.TIMEZONE)
+    dt = dt.astimezone(pytz.utc)
+    return int(dt.timestamp())

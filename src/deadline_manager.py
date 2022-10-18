@@ -4,7 +4,7 @@ from util import *
 
 class DeadlineManager:
     MAX_QUERIES_WITHOUT_CLEANUP = 100
-    MAX_QUERY_LIFETIME = 15
+    MAX_QUERY_LIFETIME = 180
 
     def __init__(self):
         self.last_query_add = {}
