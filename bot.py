@@ -451,11 +451,11 @@ def process(message):
             if index >= len(list_of_active_deadlines):
                 bot.reply_to(message, "Sorry it seems it a DDOS attack")            
             else:
-                changed_deadline = sorted(list_of_active_deadlines, lambda x: x[0])[index]
+                changed_deadline = sorted(list_of_active_deadlines, lambda x: x[0])[index][-3:]
                 with open(config.log_path, 'w') as fout:
                     for i in range(len(lines)):
                         splitted_line = lines[i].strip().split(';')
-                        if changed_deadline == splitted_line:
+                        if ''.join(changed_deadline) == ''.join(splitted_line):
                             new_entry = new_deadline + ';' + splitted_line[1] + ';' + splitted_line[2]
                             fout.write(new_entry + '\n')
                         else:
