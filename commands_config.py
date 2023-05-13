@@ -21,3 +21,4 @@ class bot_command:
     unsubscribe = 'unsubscribe'
     userid = 'userid'
     wiki = 'wiki'
+    change_deadline = 'change_deadline'

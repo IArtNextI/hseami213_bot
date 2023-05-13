@@ -160,6 +160,31 @@ def get_deadlines(message):
         bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
 
 
+@bot.message_handler(commands=[bot_command.change_deadline])
+def change_deadline(message):
+    global last_query, CORRECT_IDS
+    cleanup()
+    if not check_IDS(message):
+        return
+    list_of_active_deadlines = get_active_deadlines()
+    if list_of_active_deadlines:
+        list_of_active_deadlines.sort(key=lambda x: x[0])
+        deadlines_message = 'Выбери, какой дедлайн перенести:\n\n'
+
+        for ind, date, *splitted in enumerate(list_of_active_deadlines):
+            res = ind + ' ---> ' + splitted[0] + ' --- '
+            if splitted[2]:
+                res += '<a href=\"' + splitted[2] + '\">' + splitted[1] + "</a>\n"
+            else:
+                res += splitted[1] + '\n'
+            deadlines_message += res
+
+        bot.reply_to(message, deadlines_message, parse_mode="HTML", disable_web_page_preview=True)
+        last_query[message.from_user.id] = (datetime.datetime.now(), -2)
+    else:
+        bot.reply_to(message, "Я честно не думал, что это когда-нибудь отработает, но дедлайнов нет...")
+
+
 @bot.message_handler(commands=[bot_command.delete])
 def delete_message(message):
     global last_query, CORRECT_IDS
@@ -410,6 +435,33 @@ def process(message):
                         fout.write(lines[i])
                 last_query[user] = (datetime.datetime.now(), 0)
                 bot.reply_to(message, "Уничтожил, низвел до атомов...")
+        elif current[1] == -2:
+            index = int(message.text.strip())
+            last_query[user] = (datetime.datetime.now(), -3, index)
+            bot.reply_to(message, "Напиши новый дедлайн: (dd.mm.yyyy hh:mm)")
+        elif current[1] == -3:
+            index = last_query[user][2]
+            msg = message.text.strip()
+            date, time = msg.split()
+            new_deadline = datetime.datetime(*map(int, date.split('.')[::-1]), *map(int, time.split(':')), 59,
+                                         tzinfo=config.timezone)
+            list_of_active_deadlines = get_active_deadlines()
+            with open(config.log_path, 'r') as fin:
+                lines = fin.readlines()
+            if index >= len(list_of_active_deadlines):
+                bot.reply_to(message, "Sorry it seems it a DDOS attack")            
+            else:
+                changed_deadline = sorted(list_of_active_deadlines, lambda x: x[0])[index]
+                with open(config.log_path, 'w') as fout:
+                    for i in range(len(lines)):
+                        splitted_line = lines[i].strip().split(';')
+                        if changed_deadline == splitted_line:
+                            new_entry = new_deadline + ';' + splitted_line[1] + ';' + splitted_line[2]
+                            fout.write(new_entry + '\n')
+                        else:
+                            fout.write(lines[i])
+                last_query[user] = (datetime.datetime.now(), 0)
+                bot.reply_to(message, "Перенесено)")
     except Exception as e:
         logger.error(e)
         bot.reply_to(message, "Sorry it seems it a DDOS attack")

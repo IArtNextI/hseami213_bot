@@ -36,6 +36,7 @@ bot_message = {
         , '/' + bot_command.chatid + '- отобразить id текущей беседы'
         , '/' + bot_command.userid + '- отобразить id пользователя'
         , '/' + bot_command.delete + '- начать удаление дедлайна'
+        , '/' + bot_command.change_deadline + ' - перенести дедлайн'
         , '/' + bot_command.wiki + '- отобразить список ссылок на вики'
         , '/' + bot_command.marks + '- отобразить список ссылок на таблицы с оценками'
         , '/' + bot_command.linal + '- отобразить ссылки на Yandex.Disk с дз по линалу и на задачник Кострикина'
