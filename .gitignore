@@ -2,7 +2,7 @@
 venv/*
 hseami213_bot/log.txt
 key.py
-__pycache__/*
+__pycache__
 hseami213_bot/*
 subscribers.csv
 admin.py
