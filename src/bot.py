@@ -1,7 +1,8 @@
 from unicodedata import name
 from pytz import timezone
-import admin
+
 import config
+import admin
 import key
 import subscribe
 from config_commands import BotCommand
@@ -14,7 +15,6 @@ import csv
 import datetime
 import logging
 import re
-import ruz
 import telebot
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -29,7 +29,6 @@ deadline_manager = DeadlineManager()
 
 last_query = dict()
 last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-todays_schedule = ruz.person_lessons(email=config.EMAIL, from_date=last_update_date, to_date=last_update_date)
 queries_without_cleanup = 0
 
 CORRECT_IDs = admin.CORRECT_IDs.copy()
@@ -158,7 +157,7 @@ def slash_all(message):
         res = '\n'.join(subscribers.get_subs_list())
     else:
         res = ''.join(subscribers.get_beautiful_links())
-        
+
     bot.reply_to(message, res, parse_mode="MarkdownV2", disable_web_page_preview=True)
 
 
@@ -224,7 +223,7 @@ def delete(message):
     global CORRECT_IDs
     if message.from_user.id not in ADMIN_IDs:
         return
-    
+
     deadline_manager.delete(bot, message)
 
 
