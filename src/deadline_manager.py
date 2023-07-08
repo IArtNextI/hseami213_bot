@@ -9,10 +9,11 @@ class DeadlineManager:
     def __init__(self):
         self.last_query_add = {}
         self.last_query_delete = {}
+        self.last_query_change = {}
         self.queries_without_cleanup = 0
 
     def cleanup(self, key):
-        flag = self.last_query_add.get(key) is not None or self.last_query_delete.get(key) is not None
+        flag = self.last_query_add.get(key) is not None or self.last_query_delete.get(key) is not None or self.last_query_change.get(key) is not None
         new_dict = {}
         for (user, chat), (*other, timestamp) in self.last_query_add.items():
             if time.time() - timestamp <= DeadlineManager.MAX_QUERY_LIFETIME:
@@ -25,7 +26,13 @@ class DeadlineManager:
                 new_dict[(user, chat)] = [*other, timestamp]
         self.last_query_delete = new_dict
 
-        return flag and self.last_query_add.get(key) is None and self.last_query_delete.get(key) is None
+        new_dict = {}
+        for (user, chat), (*other, timestamp) in self.last_query_change.items():
+            if time.time() - timestamp <= DeadlineManager.MAX_QUERY_LIFETIME:
+                new_dict[(user, chat)] = [*other, timestamp]
+        self.last_query_change = new_dict
+
+        return flag and self.last_query_add.get(key) is None and self.last_query_delete.get(key) is None and self.last_query_change.get(key) is None
 
     @staticmethod
     def ask_add(bot, condition, message):
@@ -37,7 +44,7 @@ class DeadlineManager:
             bot.reply_to(message, 'Ссылочку бы...')
         elif condition == ConditionAdd.DONE:
             bot.reply_to(message, 'Записано')
-    
+
     @staticmethod
     def ask_delete(bot, condition, message, **kwargs):
         if condition == ConditionDelete.ASK:
@@ -51,7 +58,19 @@ class DeadlineManager:
             else:
                 bot.reply_to(message, 'Entry not found')
 
-    def add(self, bot, message):
+    @staticmethod
+    def ask_change(bot, condition, message, **kwargs):
+        if condition == ConditionChange.ASK:
+            res = 'Выберите, какую запись изменить:\n\n'
+            for i, deadline in enumerate(get_all_deadlines(message.chat.id)):
+                res += str(i) + " :: " + deadline.text + '\n'
+            bot.reply_to(message, res, disable_web_page_preview=True)
+        elif condition == ConditionChange.ASKFORNEWDEADLINE:
+            bot.reply_to(message, 'Дедлайн? (dd.mm.yyyy hh:mm)?')
+        elif condition == ConditionChange.DONE:
+            bot.reply_to(message, 'Перенесено)')
+
+    def add(self, bot, subscribers, message):
         user, chat = parse_message(message)
         key = (user, chat)
         if self.cleanup(key):
@@ -75,7 +94,7 @@ class DeadlineManager:
                 new_deadline = cur[0]
                 with open(config.PATH_CHAT_DATA.format(chat), newline='', mode='a') as file:
                     file.write(','.join([str(new_deadline.timestamp), new_deadline.text, new_deadline.url]) + '\n')
-                    schedule_reminder(new_deadline, chat)
+                    schedule_reminder(new_deadline, chat, subscribers, bot)
                 del self.last_query_add[key]
             DeadlineManager.ask_add(bot, cur[1], message)
         except Exception as e:
@@ -115,11 +134,52 @@ class DeadlineManager:
             logger.error(e)
             bot.reply_to(message, 'Sorry, it seems it a DDOS attack')
 
+    def change(self, bot, message):
+        user, chat = parse_message(message)
+        key = (user, chat)
+        if self.cleanup(key):
+            return
+        cur = self.last_query_change.get(key, None)
+        message_text = message.text.strip()
+        try:
+            if cur is None:
+                self.last_query_change[key] = [0, ConditionChange.NEW, time.time()]
+                cur = self.last_query_change[key]
+            elif cur[1] == ConditionChange.ASK:
+                cur[0] = int(message_text)
+            elif cur[1] == ConditionChange.ASKFORNEWDEADLINE:
+                new_timestamp = int(date_to_timestamp(message_text))
+
+            cur[1] = ConditionChange(cur[1] + 1)
+            success = False
+
+            if cur[1] == ConditionChange.DONE:
+                with open(config.PATH_CHAT_DATA.format(chat), newline='', mode='r') as fin:
+                    lines = fin.readlines()
+                logger.info(lines)
+                with open(config.PATH_CHAT_DATA.format(chat), newline='', mode='w') as fout:
+                    for index, line in enumerate(lines):
+                        if index == cur[0]:
+                            fout.write(','.join([str(new_timestamp), *line.split(',')[1:]]))
+                            success = True
+                            continue
+                        fout.write(line)
+                del self.last_query_change[key]
+
+            DeadlineManager.ask_change(bot, cur[1], message, success=success)
+        except Exception as e:
+            logger.error(e)
+            bot.reply_to(message, 'Sorry, it seems it a DDOS attack')
+
     def has_active_add(self, message):
         user, chat = parse_message(message)
         key = (user, chat)
         return self.last_query_add.get(key) is not None
-    
+
+    def has_active_change(self, message):
+        user, chat = parse_message(message)
+        key = (user, chat)
+        return self.last_query_change.get(key) is not None
 
     def has_active_delete(self, message):
         user, chat = parse_message(message)

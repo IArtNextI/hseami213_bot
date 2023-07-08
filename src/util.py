@@ -41,10 +41,10 @@ def parse_message(message):
     '''
     returns pair {user_id, chat_id}
     '''
-    return message.from_user.id, message.chat.id 
+    return message.from_user.id, message.chat.id
 
 
-def send_reminder(name, timestamp, chat_id):
+def send_reminder(name, timestamp, subscribers, bot, chat_id):
     '''
     Function that sends deadline notification
     Used with scheduler
@@ -55,7 +55,7 @@ def send_reminder(name, timestamp, chat_id):
     bot.send_message(chat_id, text, parse_mode="Markdown")
 
 
-def schedule_reminder(new_deadline, chat):
+def schedule_reminder(new_deadline, chat, subscribers, bot):
     '''
     Schedules send_reminder() call
     '''
@@ -64,7 +64,7 @@ def schedule_reminder(new_deadline, chat):
         send_reminder,
         'date',
         run_date=run_date,
-        args=[new_deadline.text, new_deadline.timestamp, chat]
+        args=[new_deadline.text, new_deadline.timestamp, subscribers, bot, chat]
     )
 
 

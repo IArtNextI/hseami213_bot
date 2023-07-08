@@ -22,11 +22,16 @@ class ConditionAdd(IntEnum):
     TEXT = 2
     DATE = 3
     URL = 4
-
     DONE = 5
 
 class ConditionDelete(IntEnum):
     NEW = 1
     ASK = 2
-
     DONE = 3
+
+class ConditionChange(IntEnum):
+    NEW = 1
+    ASK = 2
+    ASKFORNEWDEADLINE = 3
+
+    DONE = 4

@@ -34,17 +34,8 @@ queries_without_cleanup = 0
 CORRECT_IDs = admin.CORRECT_IDs.copy()
 ADMIN_IDs = admin.ADMIN_IDs.copy()
 
-
-def update_today_schedule():
-    global last_update_date, todays_schedule
-    last_update_date = datetime.datetime.today().strftime('%Y.%m.%d')
-    todays_schedule = ruz.person_lessons(email=config.email, from_date=datetime.datetime.today().strftime('%Y.%m.%d'),
-                                         to_date=datetime.datetime.today().strftime('%Y.%m.%d'))
-
-
 def check_IDs(message):
     return not CORRECT_IDs or message.chat.id in CORRECT_IDs or message.from_user.id in ADMIN_IDs
-
 
 def cleanup():
     global queries_without_cleanup, last_query
@@ -126,7 +117,7 @@ def get_info(message):
     bot.reply_to(message, BotMessage[get_command_name(message)](message))
 
 
-@bot.message_handler(commands=[BotCommand.wiki, BotCommand.marks, BotCommand.linal, BotCommand.recordings])
+@bot.message_handler(commands=[BotCommand.wiki, BotCommand.marks, BotCommand.recordings])
 def send_md2(message):
     global last_query, CORRECT_IDs
     cleanup()
@@ -153,29 +144,13 @@ def slash_all(message):
     if not check_IDs(message):
         return
 
+    res = "If you see this, we fucked up"
     if get_command_name(message) == BotCommand.subs:
-        res = '\n'.join(subscribers.get_subs_list())
+        res = "Subscrbers list:\n" + '\n'.join(subscribers.get_subs_list())
     else:
-        res = ''.join(subscribers.get_beautiful_links())
+        res = "MEGA PING\\!\\!\\!\n" + ''.join(subscribers.get_beautiful_links())
 
     bot.reply_to(message, res, parse_mode="MarkdownV2", disable_web_page_preview=True)
-
-
-@bot.message_handler(commands=[BotCommand.today])
-def send_todays_schedule(message):
-    global last_query, CORRECT_IDs
-    cleanup()
-    if not check_IDs(message):
-        return
-
-    if last_update_date < datetime.datetime.today().strftime('%Y.%m.%d'):
-        update_today_schedule()
-    if len(todays_schedule) == 0:
-        bot.reply_to(message, 'Нет у тебя сегодня пар, дурень. Иди отдохни...', parse_mode="Markdown",
-                     disable_web_page_preview=True)
-        return
-    res = BotMessage[BotCommand.today](todays_schedule)
-    bot.reply_to(message, res, parse_mode="Markdown", disable_web_page_preview=True)
 
 
 @bot.message_handler(commands=[BotCommand.oakbus] + config.BUS_COMMANDS)
@@ -191,6 +166,7 @@ def send_bus_schedule(message):
 
 @bot.message_handler(commands=['addid'])
 def add_ID(message):
+    global CORRECT_IDs
     if message.from_user.id not in ADMIN_IDs:
         return
     try:
@@ -205,13 +181,31 @@ def add_ID(message):
 
 @bot.message_handler(commands=['readids', 'printids', 'getids'])
 def read_ID(message):
+    global CORRECT_IDs
     if message.from_user.id not in ADMIN_IDs:
         return
     try:
         result = ''
-        for index, line in enumerate(CORRECT_IDs):
+        for index, line in enumerate(list(set(CORRECT_IDs))):
             result += "--> " + str(line) + '\n'
         bot.reply_to(message, result)
+    except Exception as e:
+        logger.error(e)
+
+
+@bot.message_handler(commands=['delid'])
+def add_ID(message):
+    global CORRECT_IDs
+    if message.from_user.id not in ADMIN_IDs:
+        return
+    try:
+        candidate_id = int(message.text.split()[1])
+        CORRECT_IDs_set = set(CORRECT_IDs)
+        CORRECT_IDs_set.remove(candidate_id)
+        CORRECT_IDs = list(CORRECT_IDs_set)
+        with open(config.PATH_IDS, 'w') as fout:
+            print(*CORRECT_IDs_set, sep='\n', file=fout)
+        bot.reply_to(message, "Done")
     except Exception as e:
         logger.error(e)
 
@@ -273,8 +267,19 @@ def add(message):
     if not check_IDs(message):
         return
 
-    deadline_manager.add(bot, message)
+    deadline_manager.add(bot, subscribers, message)
 
+@bot.message_handler(
+    func=lambda x: get_command_name(x) == BotCommand.change or deadline_manager.has_active_change(x)
+)
+def change(message):
+    '''
+    Process one step of creating new deadline
+    '''
+    if not check_IDs(message):
+        return
+
+    deadline_manager.change(bot, message)
 
 def process_deadlines(chat_id):
     '''
@@ -282,7 +287,7 @@ def process_deadlines(chat_id):
     '''
     for deadline in get_active_deadlines(chat_id):
         logger.info(deadline)
-        schedule_reminder(deadline, chat_id)
+        schedule_reminder(deadline, chat_id, subscribers, bot)
 
 
 def load_IDs():
