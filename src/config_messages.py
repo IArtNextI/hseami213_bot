@@ -8,7 +8,7 @@ https://core.telegram.org/bots/api#markdownv2-style
 BotMessage = {
 
     BotCommand.help: '\n'.join((
-          '/' + BotCommand.help + '- отобразить это сообщение'
+          '/' + BotCommand.help + ' - отобразить это сообщение'
         , '/' + BotCommand.add + ' - начать добавление дедлайна'
         , '/' + BotCommand.get + ' - отобразить список текущих дедлайнов'
         , '/' + BotCommand.chatid + ' - отобразить id текущей беседы'

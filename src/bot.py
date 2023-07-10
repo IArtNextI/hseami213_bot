@@ -220,6 +220,10 @@ def delete(message):
 
     deadline_manager.delete(bot, message)
 
+    scheduler.remove_all_jobs()
+    for chat_id in set(CORRECT_IDs):
+        process_deadlines(chat_id)
+
 
 @bot.message_handler(commands=['register'])
 def register_chat(message):
@@ -280,6 +284,9 @@ def change(message):
         return
 
     deadline_manager.change(bot, message)
+    scheduler.remove_all_jobs()
+    for chat_id in set(CORRECT_IDs):
+        process_deadlines(chat_id)
 
 def process_deadlines(chat_id):
     '''
